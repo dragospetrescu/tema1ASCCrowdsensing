@@ -6,13 +6,19 @@ Assignment 1
 March 2018
 """
 
-from threading import Event, Thread
+from threading import Event
 
+from DeviceThread import DeviceThread
+from barrier import *
 
 class Device(object):
     """
     Class that represents a device.
     """
+
+    time_point_barrier = None
+    time_point_barrier_initialization = Event()
+    nr_devices = 0
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
@@ -33,8 +39,10 @@ class Device(object):
         self.script_received = Event()
         self.scripts = []
         self.timepoint_done = Event()
+        self.timepoint_done.clear()
         self.thread = DeviceThread(self)
-        self.thread.start()
+        self.current_timepoint = 0
+        Device.nr_devices += 1
 
     def __str__(self):
         """
@@ -52,8 +60,14 @@ class Device(object):
         @type devices: List of Device
         @param devices: list containing all devices
         """
-        # we don't need no stinkin' setup
-        pass
+        if self.device_id == 0:
+            Device.time_point_barrier = ReusableBarrierCond(Device.nr_devices)
+            print "Sunt " + str(Device.nr_devices) + " device-uri"
+            Device.time_point_barrier_initialization.set()
+        else:
+            Device.time_point_barrier_initialization.wait()
+
+        self.thread.start()
 
     def assign_script(self, script, location):
         """
@@ -68,9 +82,15 @@ class Device(object):
         """
         if script is not None:
             self.scripts.append((script, location))
+            print "Device " + str(self.device_id) + " received script " + str(script) + " location " + str(location) + "\n"
             self.script_received.set()
         else:
+            print "Device " + str(self.device_id) + " is waiting for end of timepoint " + str(self.current_timepoint) + "\n"
+            self.time_point_barrier.wait()
+            self.current_timepoint +=1
+            self.script_received.set()
             self.timepoint_done.set()
+            print "Device " + str(self.device_id) + " incepe timepoint-ul " + str(self.current_timepoint) + "\n"
 
     def get_data(self, location):
         """
@@ -104,55 +124,3 @@ class Device(object):
         started by this device terminate.
         """
         self.thread.join()
-
-
-class DeviceThread(Thread):
-    """
-    Class that implements the device's worker thread.
-    """
-
-    def __init__(self, device):
-        """
-        Constructor.
-
-        @type device: Device
-        @param device: the device which owns this thread
-        """
-        Thread.__init__(self, name="Device Thread %d" % device.device_id)
-        self.device = device
-
-    def run(self):
-        # hope there is only one timepoint, as multiple iterations of the loop are not supported
-        while True:
-            # get the current neighbourhood
-            neighbours = self.device.supervisor.get_neighbours()
-            if neighbours is None:
-                break
-
-            self.device.script_received.wait()
-
-            # run scripts received until now
-            for (script, location) in self.device.scripts:
-                script_data = []
-                # collect data from current neighbours
-                for device in neighbours:
-                    data = device.get_data(location)
-                    if data is not None:
-                        script_data.append(data)
-                # add our data, if any
-                data = self.device.get_data(location)
-                if data is not None:
-                    script_data.append(data)
-
-                if script_data != []:
-                    # run script on data
-                    result = script.run(script_data)
-
-                    # update data of neighbours, hope no one is updating at the same time
-                    for device in neighbours:
-                        device.set_data(location, result)
-                    # update our data, hope no one is updating at the same time
-                    self.device.set_data(location, result)
-
-            # hope we don't get more than one script
-            self.device.timepoint_done.wait()

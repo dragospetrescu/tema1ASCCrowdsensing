@@ -237,7 +237,7 @@ tester thread '%s'" % (str(device), method, thread.name))
 
         for dev_rd in self.devices.values():
             if dev_rd.crt_timepoint < crt_timepoint or dev_rd.crt_timepoint > crt_timepoint + 1:
-                self.report("device %d called 'get_neighbours' without waiting for other devices\n" % device_id, True)
+                self.report("device %d timepoint is %d versus current %d\n" % (device_id, dev_rd.crt_timepoint, crt_timepoint), True)
 
         for thrd in self.threads[device_id]:
                     thrd.join()
