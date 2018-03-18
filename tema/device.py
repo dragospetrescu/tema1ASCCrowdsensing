@@ -6,7 +6,7 @@ Assignment 1
 March 2018
 """
 
-from threading import Event, Thread
+from threading import *
 
 from barrier import ReusableBarrierSem
 
@@ -43,6 +43,10 @@ class Device(object):
 		self.current_timepoint = 0
 		self.thread = None
 		self.workers_barrier = None
+
+		self.mutexR = Lock()
+		self.rw = Lock()
+		self.nr = 0
 
 	def __str__(self):
 		"""
@@ -117,7 +121,20 @@ class Device(object):
 		@rtype: Float
 		@return: the pollution value
 		"""
-		return self.sensor_data[location] if location in self.sensor_data else None
+		self.mutexR.acquire()
+		self.nr += 1
+		if self.nr == 1:
+			self.rw.acquire()
+		self.mutexR.release()
+
+		data = self.sensor_data[location] if location in self.sensor_data else None
+
+		self.mutexR.acquire()
+		self.nr -= 1
+		if self.nr == 0:
+			self.rw.release()
+		self.mutexR.release()
+		return data
 
 	def set_data(self, location, data):
 		"""
@@ -129,8 +146,10 @@ class Device(object):
 		@type data: Float
 		@param data: the pollution value
 		"""
+		self.rw.acquire()
 		if location in self.sensor_data:
 			self.sensor_data[location] = data
+		self.rw.release()
 
 	def shutdown(self):
 		"""
