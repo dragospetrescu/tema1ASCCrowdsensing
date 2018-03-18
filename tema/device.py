@@ -44,9 +44,16 @@ class Device(object):
 		self.thread = None
 		self.workers_barrier = None
 
-		self.mutexR = Lock()
-		self.rw = Lock()
 		self.nr = 0
+		self.nw = 0
+		self.e = Lock()
+		self.r = Lock()
+		self.r.acquire()
+		self.w = Lock()
+		self.w.acquire()
+		self.dr = 0
+		self.dw = 0
+
 
 	def __str__(self):
 		"""
@@ -121,19 +128,31 @@ class Device(object):
 		@rtype: Float
 		@return: the pollution value
 		"""
-		self.mutexR.acquire()
+
+		self.e.acquire()
+		if self.nw > 0 or self.dw > 0:
+			self.dr += 1
+			self.e.release()
+			self.r.acquire()
+
 		self.nr += 1
-		if self.nr == 1:
-			self.rw.acquire()
-		self.mutexR.release()
+
+		if self.dr > 0:
+			self.dr -= 1
+			self.r.release()
+		elif self.dr == 0 :
+			self.e.release()
 
 		data = self.sensor_data[location] if location in self.sensor_data else None
 
-		self.mutexR.acquire()
+		self.e.acquire()
 		self.nr -= 1
-		if self.nr == 0:
-			self.rw.release()
-		self.mutexR.release()
+		if self.nr == 0 and self.dw > 0:
+			self.dw -= 1
+			self.w.release()
+		elif self.nr > 0 or self.dw == 0:
+			self.e.release()
+
 		return data
 
 	def set_data(self, location, data):
@@ -146,10 +165,32 @@ class Device(object):
 		@type data: Float
 		@param data: the pollution value
 		"""
-		self.rw.acquire()
+
+		self.e.acquire()
+		if self.nr > 0 or self.nw > 0:
+			self.dw += 1
+			self.e.release()
+			self.w.acquire()
+
+		self.nw += 1
+		self.e.release()
+
 		if location in self.sensor_data:
 			self.sensor_data[location] = data
-		self.rw.release()
+
+		self.e.acquire()
+		self.nw -= 1
+
+		if self.dr > 0 and self.dw == 0:
+			self.dr -= 1
+			self.r.release()
+		elif self.dw > 0:
+			self.dw -= 1
+			self.w.release()
+		elif self.dr == 0 and self.dw == 0:
+			self.e.release()
+
+
 
 	def shutdown(self):
 		"""
