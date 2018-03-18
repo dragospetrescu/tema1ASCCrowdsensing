@@ -15,7 +15,7 @@ class Device(object):
 	"""
 	Class that represents a device.
 	"""
-	log_message = ""
+	data_log_message = ""
 	NO_THREADS = 1
 
 	def __init__(self, device_id, sensor_data, supervisor):
@@ -111,8 +111,9 @@ class Device(object):
 		if script is not None:
 			self.scripts.append((script, location))
 			self.script_received.set()
+			Device.data_log_message += "Device %d received script for location %d on timepoint %d\n" %(self.device_id, location, self.current_timepoint)
 		else:
-			Device.log_message += "Id %d received NONE\n" % self.device_id
+			Device.data_log_message += "Device %d received NONE\n" % self.device_id
 			self.script_received.set()
 			self.barrier.wait()
 			self.current_timepoint += 1
@@ -128,7 +129,7 @@ class Device(object):
 		@rtype: Float
 		@return: the pollution value
 		"""
-
+		Device.data_log_message += "Device %d is waiting for read on timepoint %d\n" %(self.device_id, self.current_timepoint)
 		self.e.acquire()
 		if self.nw > 0 or self.dw > 0:
 			self.dr += 1
@@ -144,6 +145,7 @@ class Device(object):
 			self.e.release()
 
 		data = self.sensor_data[location] if location in self.sensor_data else None
+		Device.data_log_message += "Device %d is reading %s from location %d on timepoint %d\n" % (self.device_id, str(data), location, self.current_timepoint)
 
 		self.e.acquire()
 		self.nr -= 1
@@ -152,7 +154,7 @@ class Device(object):
 			self.w.release()
 		elif self.nr > 0 or self.dw == 0:
 			self.e.release()
-
+		Device.data_log_message += "Device %d finished reading on timepoint %d\n" % (self.device_id, self.current_timepoint)
 		return data
 
 	def set_data(self, location, data):
@@ -165,7 +167,7 @@ class Device(object):
 		@type data: Float
 		@param data: the pollution value
 		"""
-
+		Device.data_log_message += "Device %d is waiting to write on timepoint %d\n" % (self.device_id, self.current_timepoint)
 		self.e.acquire()
 		if self.nr > 0 or self.nw > 0:
 			self.dw += 1
@@ -174,7 +176,7 @@ class Device(object):
 
 		self.nw += 1
 		self.e.release()
-
+		Device.data_log_message += "Device %d is writing %s in location %d on timepoint %d\n" % (self.device_id, str(data), location, self.current_timepoint)
 		if location in self.sensor_data:
 			self.sensor_data[location] = data
 
@@ -189,6 +191,8 @@ class Device(object):
 			self.w.release()
 		elif self.dr == 0 and self.dw == 0:
 			self.e.release()
+		Device.data_log_message += "Device %d finished writing on timepoint %d\n" % (
+			self.device_id, self.current_timepoint)
 
 
 
@@ -222,19 +226,20 @@ class DeviceThread(Thread):
 		while True:
 			# get the current neighbourhood
 
-			Device.log_message += "ID %d apeleaza get_neighbours\n" % (self.device.device_id)
+			Device.data_log_message += "ID %d apeleaza get_neighbours\n" % (self.device.device_id)
 			neighbours = self.device.supervisor.get_neighbours()
 			if neighbours is None:
-				Device.log_message += "ID %d has no neighbours\n" % (self.device.device_id)
+				Device.data_log_message += "ID %d has no neighbours\n" % (self.device.device_id)
 				break
 
-			Device.log_message += "ID %d asteapta script_received\n" % (self.device.device_id)
+			Device.data_log_message += "ID %d asteapta script_received\n" % (self.device.device_id)
 			self.device.script_received.wait()
 			self.device.script_received.clear()
-			Device.log_message += "ID %d terminat script_received\n" % (self.device.device_id)
+			Device.data_log_message += "ID %d terminat script_received\n" % (self.device.device_id)
 
 			# run scripts received until now
 			for (script, location) in self.device.scripts:
+				Device.data_log_message += "ID %d starts work on location %d\n" % (self.device.device_id, location)
 				script_data = []
 				# collect data from current neighbours
 				for device in neighbours:
@@ -256,9 +261,16 @@ class DeviceThread(Thread):
 					# update our data, hope no one is updating at the same time
 					self.device.set_data(location, result)
 
-			# hope we don't get more than one script
-			Device.log_message += "ID %d asteapta timepoint_done\n" % (self.device.device_id)
+			if self.device.script_received[-1] is not None:
+				self.device.script_received.wait()
+				self.device.script_received.clear()
+
+			Device.data_log_message += "ID %d asteapta timepoint_done\n" % (self.device.device_id)
 			self.device.timepoint_done.wait()
 			self.device.timepoint_done.clear()
-			Device.log_message += "ID %d terminat timepoint_done\n" % (self.device.device_id)
+			Device.data_log_message += "ID %d terminat timepoint_done\n" % (self.device.device_id)
 			self.workers_timepoint_barrier.wait()
+
+
+	def __work(self):
+
