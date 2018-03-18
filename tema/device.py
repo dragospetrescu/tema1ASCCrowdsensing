@@ -16,10 +16,6 @@ class Device(object):
     Class that represents a device.
     """
 
-    time_point_barrier = None
-    time_point_barrier_initialization = Event()
-    nr_devices = 0
-
     def __init__(self, device_id, sensor_data, supervisor):
         """
         Constructor.
@@ -39,10 +35,8 @@ class Device(object):
         self.script_received = Event()
         self.scripts = []
         self.timepoint_done = Event()
-        self.timepoint_done.clear()
         self.thread = DeviceThread(self)
         self.current_timepoint = 0
-        Device.nr_devices += 1
 
     def __str__(self):
         """
@@ -60,13 +54,8 @@ class Device(object):
         @type devices: List of Device
         @param devices: list containing all devices
         """
-        if self.device_id == 0:
-            Device.time_point_barrier = ReusableBarrierCond(Device.nr_devices)
-            print "Sunt " + str(Device.nr_devices) + " device-uri"
-            Device.time_point_barrier_initialization.set()
-        else:
-            Device.time_point_barrier_initialization.wait()
-
+        self.script_received.clear()
+        self.timepoint_done.clear()
         self.thread.start()
 
     def assign_script(self, script, location):
@@ -85,12 +74,13 @@ class Device(object):
             print "Device " + str(self.device_id) + " received script " + str(script) + " location " + str(location) + "\n"
             self.script_received.set()
         else:
-            print "Device " + str(self.device_id) + " is waiting for end of timepoint " + str(self.current_timepoint) + "\n"
+            print "Device " + str(self.device_id) + " received NONE on timepoint " + str(self.current_timepoint) + "\n"
             self.time_point_barrier.wait()
+            # print "Device " + str(self.device_id) + " terminat asteptarea" + "\n"
             self.current_timepoint +=1
             self.script_received.set()
             self.timepoint_done.set()
-            print "Device " + str(self.device_id) + " incepe timepoint-ul " + str(self.current_timepoint) + "\n"
+            # print "Device " + str(self.device_id) + " incepe timepoint-ul " + str(self.current_timepoint) + "\n"
 
     def get_data(self, location):
         """

@@ -21,14 +21,19 @@ class DeviceThread(Thread):
         # hope there is only one timepoint, as multiple iterations of the loop are not supported
         while True:
             # get the current neighbourhood
-            # print "Device thread id " + str(self.device.device_id) + " cheama vecinii" + "\n"
+            # self.device.timepoint_done.wait()
+            # self.device.timepoint_done.clear()
+
+            # print "Thread id " + str(self.device.device_id) + " waiting for master to receive script" + "\n"
+            self.device.script_received.wait()
+            self.device.script_received.clear()
+            # print "Device thread id " + str(self.device.device_id) + " master just received script" + "\n"
+            print "Thread id " + str(self.device.device_id) + " VECINII %d" %( self.device.current_timepoint) + "\n"
             neighbours = self.device.supervisor.get_neighbours()
             if neighbours is None:
                 break
 
-            # print "Device thread id " + str(self.device.device_id) + " waiting for master to receive script" + "\n"
-            self.device.script_received.wait()
-            # print "Device thread id " + str(self.device.device_id) + " master just received script" + "\n"
+
 
             # run scripts received until now
             for (script, location) in self.device.scripts:
