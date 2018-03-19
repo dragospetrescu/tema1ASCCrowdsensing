@@ -43,6 +43,7 @@ class Device(object):
 		self.current_timepoint = 0
 		self.thread = None
 		self.workers_barrier = None
+		self.received_none = False
 
 		self.nr = 0
 		self.nw = 0
@@ -114,10 +115,12 @@ class Device(object):
 			Device.data_log_message += "Device %d received script for location %d on timepoint %d\n" %(self.device_id, location, self.current_timepoint)
 		else:
 			Device.data_log_message += "Device %d received NONE\n" % self.device_id
+			self.received_none = True
 			self.script_received.set()
 			self.barrier.wait()
 			self.current_timepoint += 1
 			self.timepoint_done.set()
+			self.received_none = False
 
 	def get_data(self, location):
 		"""
@@ -232,39 +235,14 @@ class DeviceThread(Thread):
 				Device.data_log_message += "ID %d has no neighbours\n" % (self.device.device_id)
 				break
 
-			Device.data_log_message += "ID %d asteapta script_received\n" % (self.device.device_id)
-			self.device.script_received.wait()
-			self.device.script_received.clear()
-			Device.data_log_message += "ID %d terminat script_received\n" % (self.device.device_id)
-
-			# run scripts received until now
-			for (script, location) in self.device.scripts:
-				Device.data_log_message += "ID %d starts work on location %d\n" % (self.device.device_id, location)
-				script_data = []
-				# collect data from current neighbours
-				for device in neighbours:
-					data = device.get_data(location)
-					if data is not None:
-						script_data.append(data)
-				# add our data, if any
-				data = self.device.get_data(location)
-				if data is not None:
-					script_data.append(data)
-
-				if script_data != []:
-					# run script on data
-					result = script.run(script_data)
-
-					# update data of neighbours, hope no one is updating at the same time
-					for device in neighbours:
-						device.set_data(location, result)
-					# update our data, hope no one is updating at the same time
-					self.device.set_data(location, result)
-
-			if self.device.script_received[-1] is not None:
+			while not self.device.received_none:
+				Device.data_log_message += "ID %d asteapta script_received\n" % (self.device.device_id)
 				self.device.script_received.wait()
 				self.device.script_received.clear()
+				Device.data_log_message += "ID %d terminat script_received\n" % (self.device.device_id)
+				self.__work(neighbours)
 
+			self.device.script_received.clear()
 			Device.data_log_message += "ID %d asteapta timepoint_done\n" % (self.device.device_id)
 			self.device.timepoint_done.wait()
 			self.device.timepoint_done.clear()
@@ -272,5 +250,27 @@ class DeviceThread(Thread):
 			self.workers_timepoint_barrier.wait()
 
 
-	def __work(self):
+	def __work(self, neighbours):
+		# run scripts received until now
+		for (script, location) in self.device.scripts:
+			Device.data_log_message += "ID %d starts work on location %d\n" % (self.device.device_id, location)
+			script_data = []
+			# collect data from current neighbours
+			for device in neighbours:
+				data = device.get_data(location)
+				if data is not None:
+					script_data.append(data)
+			# add our data, if any
+			data = self.device.get_data(location)
+			if data is not None:
+				script_data.append(data)
 
+			if script_data != []:
+				# run script on data
+				result = script.run(script_data)
+
+				# update data of neighbours, hope no one is updating at the same time
+				for device in neighbours:
+					device.set_data(location, result)
+				# update our data, hope no one is updating at the same time
+				self.device.set_data(location, result)

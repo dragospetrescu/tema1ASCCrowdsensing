@@ -151,7 +151,7 @@ tester thread '%s'" % (str(device), method, thread.name))
             for (loc, ref_data) in sens_data.items():
                 calc_data = self.devices[dev_id].device.get_data(loc)
                 if ref_data != calc_data:
-                    self.report("after timepoint %d, data for location %d on device %d differs: expected %f, found %f\n %s\n" % (crt_timepoint, loc, dev_id, ref_data, calc_data, Device.data_log_message))
+                    self.report("after timepoint %d, data for location %d on device %d differs: expected %f, found %f\n" % (crt_timepoint, loc, dev_id, ref_data, calc_data))
         Device.data_log_message += "END OF TIMEPOINT %d IS CORRECT" % crt_timepoint
 
 
