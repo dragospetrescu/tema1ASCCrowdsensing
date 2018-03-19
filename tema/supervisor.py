@@ -18,6 +18,7 @@ from random import shuffle, uniform
 from threading import current_thread, Event, Semaphore, Thread
 from time import sleep
 from traceback import print_stack
+from debug_helper import Debug
 
 
 class Supervisor(object):
@@ -151,8 +152,7 @@ tester thread '%s'" % (str(device), method, thread.name))
             for (loc, ref_data) in sens_data.items():
                 calc_data = self.devices[dev_id].device.get_data(loc)
                 if ref_data != calc_data:
-                    self.report("after timepoint %d, data for location %d on device %d differs: expected %f, found %f\n" % (crt_timepoint, loc, dev_id, ref_data, calc_data))
-        Device.data_log_message += "END OF TIMEPOINT %d IS CORRECT" % crt_timepoint
+                    self.report("after timepoint %d, data for location %d on device %d differs: expected %f, found %f\n%s" % (crt_timepoint, loc, dev_id, ref_data, calc_data, Debug.log))
 
 
     def report(self, message, die_on_error=None):
@@ -239,7 +239,8 @@ tester thread '%s'" % (str(device), method, thread.name))
 
         for dev_rd in self.devices.values():
             if dev_rd.crt_timepoint < crt_timepoint or dev_rd.crt_timepoint > crt_timepoint + 1:
-                self.report("device %d called 'get_neighbours' on time %d expected was %d. My time was %d\n" % (device_id, dev_rd.crt_timepoint, crt_timepoint, device.current_timepoint), True)
+                self.report("device %d called 'get_neighbours' on time %d expected was %d. My time was %d\n%s"
+                            % (device_id, dev_rd.crt_timepoint, crt_timepoint, device.current_timepoint, Debug.log), True)
 
         for thrd in self.threads[device_id]:
                     thrd.join()

@@ -1,5 +1,5 @@
 from threading import *
-
+from debug_helper import Debug
 
 class ThreadsMaster(Thread):
 
@@ -12,36 +12,52 @@ class ThreadsMaster(Thread):
 		@type device: Device
 		@param device: the device which owns this thread
 		"""
+		Thread.__init__(self, name="Thread Master for device %d" % device.device_id)
 		self.device = device
 		self.neighbours = None
 		self.num_slaves_lock = Lock()
+		# self.num_slaves_lock.release()
 		self.num_slaves = 0
 		self.freed_thread = Event()
 
 	def run(self):
-		self.neighbours = self.device.supervisor.get_neighbours()
 
-		self.device.script_received.wait()
-		self.device.script_received.clear()
+		while True:
 
-		for (script, location) in self.device.scripts:
-			while self.num_slaves == ThreadsMaster.MAX_NUM_THREADS:
+			self.neighbours = self.device.supervisor.get_neighbours()
+			if self.neighbours is None:
+				break
+			Debug.log += "Master %d waiting for script\n" % (self.device.device_id)
+			self.device.script_received.wait()
+			self.device.script_received.clear()
+			Debug.log += "Master %d received script\n" % (self.device.device_id)
+
+			for (script, location) in self.device.scripts:
+				while self.num_slaves == ThreadsMaster.MAX_NUM_THREADS:
+					# print "Started script_received wait in while"
+					self.freed_thread.wait()
+					self.freed_thread.clear()
+					# print "Started script_received wait in while"
+				worker = Worker(self, self.device, self.neighbours, script, location)
+				Debug.log += "Master assigned script %s on location %d for a new thread\n" %(str(script), location)
+				worker.run()
+
+				if (script, location) == self.device.scripts[-1] and self.device.received_none is False:
+					# print "Started script_received wait in exit if"
+					self.device.script_received.wait()
+					self.device.script_received.clear()
+					# print "Finished script_received wait in exit if"
+					if self.device.received_none is True:
+						break
+			self.device.script_received.clear()
+			Debug.log += "Master %d finished all scripts\n" % (self.device.device_id)
+
+			while self.num_slaves > 0:
+				# print "Started freed_thread"
 				self.freed_thread.wait()
 				self.freed_thread.clear()
-			worker = Worker(self, self.device, self.neighbours, script, location)
-			worker.run()
-
-			if (script, location) == self.device.scripts[-1] and self.device.received_none is False:
-				self.device.script_received.wait()
-				self.device.script_received.clear()
-				if self.device.received_none is True:
-					break
-		self.device.script_received.clear()
-
-		while self.num_slaves > 0:
-			self.freed_thread.wait()
-			self.freed_thread.clear()
-		self.device.barrier.wait()
+				# print "Finished freed_thread"
+			self.device.barrier.wait()
 
 
 class Worker(Thread):
@@ -64,14 +80,17 @@ class Worker(Thread):
 		@type location: Integer
 		@param location: the location on which the script will run
 		"""
+		Thread.__init__(self, name="Worker Thread for device %d" % device.device_id)
 		self.master = master
 		self.device = device
 		self.neighbours = neighbours
 		self.script = script
 		self.location = location
+		# print "Starting num_slaves acquire"
 		self.master.num_slaves_lock.acquire()
 		self.master.num_slaves += 1
-		self.master.num_slaves_lock.acquire()
+		self.master.num_slaves_lock.release()
+		# print "Finished num_slaves acquire"
 
 	def run(self):
 		# run scripts received until now
@@ -79,10 +98,13 @@ class Worker(Thread):
 		script_data = []
 		# collect data from current neighbours
 		for device in self.neighbours:
+			Debug.log += "Worker from device %d getting data from device %d on location %d\n" % (self.device.device_id, device.device_id, self.location)
 			data = device.get_data(self.location)
 			if data is not None:
 				script_data.append(data)
 		# add our data, if any
+		Debug.log += "Worker from device %d getting data from device %d on location %d\n" % (
+		self.device.device_id, self.device.device_id, self.location)
 		data = self.device.get_data(self.location)
 		if data is not None:
 			script_data.append(data)
@@ -93,11 +115,18 @@ class Worker(Thread):
 
 			# update data of neighbours, hope no one is updating at the same time
 			for device in self.neighbours:
+				Debug.log += "Worker from device %d writting data %f on device %d on location %d\n" % (
+				self.device.device_id, result, device.device_id, self.location)
 				device.set_data(self.location, result)
 			# update our data, hope no one is updating at the same time
+			Debug.log += "Worker from device %d writting data %f on device %d on location %d\n" % (
+				self.device.device_id, result, self.device.device_id, self.location)
 			self.device.set_data(self.location, result)
 
+
+		# print "Starting num_slaves acquire"
 		self.master.num_slaves_lock.acquire()
 		self.master.num_slaves -= 1
 		self.master.freed_thread.set()
 		self.master.num_slaves_lock.release()
+		# print "Finished num_slaves acquire"
