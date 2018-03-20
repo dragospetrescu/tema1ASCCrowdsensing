@@ -47,7 +47,7 @@ class ThreadsMaster(Thread):
 					self.device.script_received.wait()
 					self.device.script_received.clear()
 					# print "Finished script_received wait in exit if"
-					if self.device.received_none is True:
+					if (script, location) == self.device.scripts[-1] and self.device.received_none is True:
 						break
 			self.device.script_received.clear()
 			Debug.log += "Master %d finished all scripts\n" % (self.device.device_id)
