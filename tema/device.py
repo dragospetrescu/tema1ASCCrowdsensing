@@ -82,7 +82,7 @@ class Device(object):
 				self.barrier = id0_device.__get_barrier()
 
 		self.thread = ThreadsMaster(self)
-		Debug.log += "Starting Thread Master\n"
+		# print "Starting Thread Master\n"
 		self.thread.start()
 
 	def __get_barrier(self):
@@ -102,13 +102,15 @@ class Device(object):
 		if script is not None:
 			self.scripts.append((script, location))
 			self.script_received.set()
-			Debug.log += "Device %d received script for location %d on timepoint %d\n" % (self.device_id, location, self.current_timepoint)
+			# print "Device %d received script for location %d on timepoint %d\n" % (self.device_id, location, self.current_timepoint)
 		else:
-			Debug.log += "Device %d received NONE\n" % self.device_id
+			# print "Device %d received NONE\n" % self.device_id
 			self.received_none = True
 			self.script_received.set()
 			# print "Starting barrier wait in device"
+			# print "Device %d waiting for barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
 			self.barrier.wait()
+			# print "Device %d finished barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
 			# print "Finished barrier wait in device"
 			self.current_timepoint += 1
 			self.received_none = False
