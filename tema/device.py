@@ -53,6 +53,7 @@ class Device(object):
 		self.dr = 0
 		self.dw = 0
 
+
 	def __str__(self):
 		"""
 		Pretty prints this device.
@@ -99,19 +100,21 @@ class Device(object):
 		@type location: Integer
 		@param location: the location for which the script is interested in
 		"""
+
+		if self.device_id == 99:
+			print "DEVICE 99 primit script " + str(script)
+
 		if script is not None:
 			self.scripts.append((script, location))
 			self.script_received.set()
-			# print "Device %d received script for location %d on timepoint %d\n" % (self.device_id, location, self.current_timepoint)
+			# Debug.log += "Device %d received script for location %d on timepoint %d\n" % (self.device_id, location, self.current_timepoint)
 		else:
-			# print "Device %d received NONE\n" % self.device_id
+			# Debug.log += "Device %d received NONE\n" % self.device_id
 			self.received_none = True
 			self.script_received.set()
-			# print "Starting barrier wait in device"
-			# print "Device %d waiting for barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
+			# Debug.log += "Device %d waiting for barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
 			self.barrier.wait()
-			# print "Device %d finished barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
-			# print "Finished barrier wait in device"
+			# Debug.log += "Device %d finished barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
 			self.current_timepoint += 1
 			self.received_none = False
 
@@ -136,7 +139,7 @@ class Device(object):
 		if self.dr > 0:
 			self.dr -= 1
 			self.r.release()
-		elif self.dr == 0 :
+		elif self.dr == 0:
 			self.e.release()
 
 		data = self.sensor_data[location] if location in self.sensor_data else None
