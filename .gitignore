@@ -3,3 +3,4 @@ venv/
 doc/
 *.pyc
 out
+log
