@@ -3,7 +3,7 @@ from debug_helper import Debug
 
 
 class ThreadsMaster(Thread):
-	MAX_NUM_THREADS = 7
+	MAX_NUM_THREADS = 8
 
 	def __init__(self, device):
 		"""
@@ -28,9 +28,9 @@ class ThreadsMaster(Thread):
 	def run(self):
 
 		while True:
-			# print "Master %d waiting neighs on timepoint %d\n" % (self.device.device_id, self.device.current_timepoint)
+			print "Master %d waiting neighs on timepoint %d\n" % (self.device.device_id, self.device.current_timepoint)
 			self.neighbours = self.device.supervisor.get_neighbours()
-			# message = "Master %d received on timepoint %d: " % (self.device.device_id, self.device.current_timepoint)
+			print "Master %d received nieghs on timepoint %d\n" % (self.device.device_id, self.device.current_timepoint)
 			# if self.neighbours is not None:
 			# 	for neigh in self.neighbours:
 			# 		message += neigh.device_id + " "
@@ -41,8 +41,10 @@ class ThreadsMaster(Thread):
 			for worker in self.free_threads:
 				worker.set_neighbours(self.neighbours)
 
+			print "Master %d waiting for script timepoint %d\n" % (self.device.device_id, self.device.current_timepoint)
 			self.device.script_received.wait()
 			self.device.script_received.clear()
+			print "Master %d received script timepoint %d\n" % (self.device.device_id, self.device.current_timepoint)
 
 			if not self.device.scripts and self.neighbours:
 				for neigh in self.neighbours:
@@ -56,20 +58,25 @@ class ThreadsMaster(Thread):
 				worker.give_script(script, location)
 
 				if (script, location) == self.device.scripts[-1] and self.device.received_none is False:
+					print "Master %d waiting for script timepoint %d in if\n" % (self.device.device_id, self.device.current_timepoint)
 					self.device.script_received.wait()
 					self.device.script_received.clear()
+					print "Master %d received script timepoint %d in if\n" % (self.device.device_id, self.device.current_timepoint)
 					if (script, location) == self.device.scripts[-1] and self.device.received_none is True:
 						break
 			self.device.script_received.clear()
 
 			while len(self.free_threads) != ThreadsMaster.MAX_NUM_THREADS:
+				print "Master %d waiting for %d workers timepoint %d in if\n" % (self.device.device_id, len(self.free_threads), self.device.current_timepoint)
 				self.freed_thread.wait()
 				self.freed_thread.clear()
+			print "Master %d workers finished and waiting for barrier on timepoint %d\n" % (self.device.device_id, self.device.current_timepoint)
 			self.device.barrier.wait()
+			print "Master %d finished timepoint %d\n" % (self.device.device_id, self.device.current_timepoint)
 
 
 		for worker in self.all_threads:
-			# print "Master %d announced worker %d\n" %(self.device.device_id, worker.id)
+			print "Master %d announced worker %d\n" %(self.device.device_id, worker.id)
 			worker.give_script(None, -1)
 
 		# while self.free_threads:
@@ -79,6 +86,7 @@ class ThreadsMaster(Thread):
 
 		for worker in self.all_threads:
 			worker.join()
+		print "Master %d died\n" % (self.device.device_id)
 
 
 class Worker(Thread):
