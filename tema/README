@@ -1,0 +1,56 @@
+========================================================================================================================
+====================================================== Tema 1 ASC ======================================================
+================================================ Petrescu Dragos 332CC =================================================
+========================================================================================================================
+
+1. setup_devices
+Principala problema a fost sa share-uiesc intre device-uri aceiasi bariera care sa spuna daca un timepoint s-a terminat.
+Pentru a rezolva aceasta problema am initializat in device 0 o astfel de bariera iar in cadrul metodei setup_devices am
+share-uit-o intre device-uri.
+Bariera are o valoarea de len(devices) * 2 deoarece fiecare device are un ThreadMaster (vezi punctul 2).
+
+
+2. ThreadMaster
+Are rolul de a gestiona Workeri. Lucreaza exact pe principiului scheduler-ului din kernelul de linux: are o coada de
+Thread-uri libere (Workeri, vezi punctul 3), asteapta de la device script-uri pe care le asigneaza acestor workeri.
+Daca nu sunt Workeri liberi atunci asteapta ca un worker sa ii semnalizeze ca a terminat treaba si atunci ii asigneaza
+un nou task.
+De asemenea asteapta Workerii sa se termine inainte sa treaca la urmatorul time point.
+ThreadMaster-ul le semnalizeaza worker-ilor cand executia s-a oprit.
+
+
+3. Worker
+Este asignat unui ThreadMaster. Are rolul de a rula script-uri.
+Anunta ThreadMaster-ul cand este liber folosind un eveniment numit freed_thread iar apoi se autoasigneaza la lista de
+free_threads.
+Cand un Worker primeste de la Master un script None atunci stie ca trebuie sa isi incheie executia
+
+
+4. assign_script
+In cea mai mare parte am pastra functionalitatea din schelet. Am adaugat o bariera la care toate device-urile si
+ThreadMastere sa se intalneasca la trecerea la time point-ul urmator.
+
+
+5. get_data and set_data
+Am considerat ca este problema cititorilor si scriitorilor. Am implementat solutia cu prioritatea scriitorilor.
+Pseudocodul algoritmului implementat poate fi gasit pe cs.curs, materia APD, curs 4.
+
+
+6. Observatii
+a). Barrier
+Am utilizat clasa ReusableBarrierSem din laboratorul 3 de ASC.
+
+b). Testul 9
+La momentul trimiterii temei nu mi se raspunsese inca la post-ul http://cs.curs.pub.ro/2017/mod/forum/discuss.php?d=2451
+Am considerat ca device-ul va aplica script-urile vecinului.
+
+
+7. Rezultate
+a). Teste
+Imi trec toate testele, de fiecare data.
+
+b). Pylint
+Am nota 10.0 pe toate sursele
+
+c). Early bonus
+Am trimis tema cu 3 zile inainte de deadline
