@@ -4,3 +4,4 @@ doc/
 *.pyc
 out
 log
+*.zip
