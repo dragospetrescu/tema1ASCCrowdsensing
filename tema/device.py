@@ -39,6 +39,7 @@ class Device(object):
 		self.script_received.clear()
 		self.scripts = []
 		self.barrier = None
+		self.die_barrier = ReusableBarrierSem(2)
 		self.current_timepoint = 0
 		self.thread = None
 		self.received_none = False
@@ -101,20 +102,13 @@ class Device(object):
 		@param location: the location for which the script is interested in
 		"""
 
-		if self.device_id == 99:
-			print "DEVICE 99 primit script " + str(script)
-
 		if script is not None:
 			self.scripts.append((script, location))
 			self.script_received.set()
-			# Debug.log += "Device %d received script for location %d on timepoint %d\n" % (self.device_id, location, self.current_timepoint)
 		else:
-			# Debug.log += "Device %d received NONE\n" % self.device_id
 			self.received_none = True
 			self.script_received.set()
-			# Debug.log += "Device %d waiting for barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
 			self.barrier.wait()
-			# Debug.log += "Device %d finished barrier on timepoint %d\n" % (self.device_id, self.current_timepoint)
 			self.current_timepoint += 1
 			self.received_none = False
 
@@ -194,5 +188,7 @@ class Device(object):
 		is invoked by the tester. This method must block until all the threads
 		started by this device terminate.
 		"""
+		# print "Device %d is waiting to die" % self.device_id
+		self.die_barrier.wait()
 		self.thread.join()
 
