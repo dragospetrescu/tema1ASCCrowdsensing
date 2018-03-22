@@ -39,7 +39,6 @@ class Device(object):
 		self.script_received.clear()
 		self.scripts = []
 		self.barrier = None
-		self.die_barrier = ReusableBarrierSem(2)
 		self.current_timepoint = 0
 		self.thread = None
 		self.received_none = False
@@ -189,6 +188,5 @@ class Device(object):
 		started by this device terminate.
 		"""
 		# print "Device %d is waiting to die" % self.device_id
-		self.die_barrier.wait()
 		self.thread.join()
 

@@ -80,10 +80,6 @@ class ThreadsMaster(Thread):
 		for worker in self.all_threads:
 			worker.join()
 
-		# print "Master %d finished all workers\n" % self.device.device_id
-		self.device.die_barrier.wait()
-		return
-
 
 class Worker(Thread):
 
@@ -124,8 +120,6 @@ class Worker(Thread):
 			self.received_script.wait()
 			self.received_script.clear()
 			if self.script is None:
-				self.master.free_threads.remove(self)
-				self.master.worker_died.set()
 				return
 
 			# run scripts received until now
